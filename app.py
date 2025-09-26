@@ -63,7 +63,7 @@ def ring_crash(nid):
     print(ring.state())
     ring._next_alive(nid)
     index_cherry = Datacenters.index(nid)
-    data=Datacenters_eq.pop(index_cherry)
+    data=Datacenters_eq[index_cherry]
     data.is_operational = False
     print(data.get_status())
     return jsonify({"ok": ok, **ring.state()})
@@ -72,10 +72,22 @@ def ring_crash(nid):
 def ring_recover(nid):
     ok = ring.recover(nid)
     index_cherry = Datacenters.index(nid)
-    if index_cherry == -1:
-        return jsonify({"ok": False, "error": "Data center ID not found."})
-    data=Datacenters_eq.insert(index_cherry,Datacenters_eq[index_cherry])
-    data.is_operational = True
+
+    # Get the corresponding data center object
+    data_center = Datacenters_eq[index_cherry]
+
+    # Mark it as operational
+    data_center.is_operational = True
+
+    # Ensure it's back in Datacenters_eq at the correct position
+    if data_center not in Datacenters_eq:
+        Datacenters_eq.insert(index_cherry, data_center)
+
+    # Optionally, reassign users if needed
+    # redirected_users = ring.reassign_users_to_node(nid)  # implement if desired
+
+    print(f"Recovered Data Center {nid}: {data_center.get_status()}")
+
     return jsonify({"ok": ok, **ring.state()})
 
 
