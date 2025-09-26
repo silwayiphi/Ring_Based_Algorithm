@@ -38,6 +38,7 @@ for i, (name, port) in enumerate(datacenters_info):
     nodes.append(node)
 
 # Test sending a message around the ring
+Datacenters_eq= [asia_dc, europe_dc, africa_dc, north_america_dc, south_america_dc, atlantic_dc]
 Datacenters =[asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id, atlantic_dc.datacenter_id]
 ring= Ring(Datacenters)
 paxos = Paxos()
@@ -59,12 +60,22 @@ def ring_start():
 @app.route("/api/ring/crash/<int:nid>", methods=["POST"])
 def ring_crash(nid):
     ok = ring.crash(nid)
-
+    print(ring.state())
+    ring._next_alive(nid)
+    index_cherry = Datacenters.index(nid)
+    data=Datacenters_eq.pop(index_cherry)
+    data.is_operational = False
+    print(data.get_status())
     return jsonify({"ok": ok, **ring.state()})
 
 @app.route("/api/ring/recover/<int:nid>", methods=["POST"])
 def ring_recover(nid):
     ok = ring.recover(nid)
+    index_cherry = Datacenters.index(nid)
+    if index_cherry == -1:
+        return jsonify({"ok": False, "error": "Data center ID not found."})
+    data=Datacenters_eq.insert(index_cherry,Datacenters_eq[index_cherry])
+    data.is_operational = True
     return jsonify({"ok": ok, **ring.state()})
 
 
