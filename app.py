@@ -10,8 +10,13 @@ from ring import Ring
 from paxos import Paxos
 
 app = Flask(__name__)
-ring = Ring([10, 20, 30, 40])
+
+asia_dc = AsiaDataCenter()
+europe_dc = EuropeDataCenter()
 africa_dc = AfricaDataCenter()
+north_america_dc = NorthAmericaDataCenter()
+south_america_dc = SouthAmericaDataCenter()
+ring= Ring([asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id])
 paxos = Paxos()
 
 
