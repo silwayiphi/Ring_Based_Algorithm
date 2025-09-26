@@ -1,9 +1,17 @@
 from flask import Flask, render_template, request, jsonify
+from Africa import AfricaDataCenter
+from Asia import AsiaDataCenter
+from Europe import EuropeDataCenter
+from NorthAmerica import NorthAmericaDataCenter
+from SouthAmerica import SouthAmericaDataCenter
+
+
 from ring import Ring
 from paxos import Paxos
 
 app = Flask(__name__)
 ring = Ring([10, 20, 30, 40])
+africa_dc = AfricaDataCenter()
 paxos = Paxos()
 
 

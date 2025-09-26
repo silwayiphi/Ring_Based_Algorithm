@@ -5,6 +5,7 @@ class EuropeDataCenter:
         self.capacity_tb = 6000  # Capacity in Terabytes
         self.utc_offset = "+01:00"  # UTC offset for the location
         self.servers = []
+        self.datacenter_id = 4
         self.is_operational = True
 
     def get_status(self):
