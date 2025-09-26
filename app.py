@@ -6,12 +6,12 @@ app = Flask(__name__)
 ring = Ring([10, 20, 30, 40])
 paxos = Paxos()
 
-# ---------- UI ----------
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ---------- Ring API ----------
+
 @app.route("/api/ring/state")
 def ring_state():
     return jsonify(ring.state())
@@ -31,7 +31,7 @@ def ring_recover(nid):
     ok = ring.recover(nid)
     return jsonify({"ok": ok, **ring.state()})
 
-# ---------- Paxos API ----------
+
 @app.route("/api/paxos/state")
 def paxos_state():
     return jsonify(paxos.snapshot())

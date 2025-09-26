@@ -7,14 +7,14 @@ import itertools
 class Acceptor:
     name: str
     alive: bool = True
-    promised_n: Dict[int, int] = field(default_factory=dict)      # index -> n
-    accepted: Dict[int, Tuple[int, str]] = field(default_factory=dict)  # index -> (n,val)
+    promised_n: Dict[int, int] = field(default_factory=dict)     
+    accepted: Dict[int, Tuple[int, str]] = field(default_factory=dict)  
 
     def promise(self, index: int, n: int):
         if not self.alive: return None
         if n >= self.promised_n.get(index, -1):
             self.promised_n[index] = n
-            prev = self.accepted.get(index)  # (n,val) or None
+            prev = self.accepted.get(index) 
             return {"promised": n, "prev": prev}
         return {"rejected": True, "promised": self.promised_n[index]}
 
@@ -45,7 +45,7 @@ class Paxos:
         index = index or (self.commit_index + 1)
         n = next(self.seq)
 
-        # Phase 1: Prepare/Promise
+        
         votes = []
         for a in self.acceptors.values():
             r = a.promise(index, n)
@@ -53,7 +53,7 @@ class Paxos:
         if sum(1 for v in votes if v and "promised" in v and "rejected" not in v) < self._majority():
             return {"ok": False, "phase": 1}
 
-        # choose highest previously accepted value (if any)
+       
         chosen = value
         best_n = -1
         for v in votes:
@@ -62,7 +62,7 @@ class Paxos:
                 if pn > best_n:
                     best_n, chosen = pn, pv
 
-        # Phase 2: Accept
+        
         acks = 0
         for a in self.acceptors.values():
             r = a.accept(index, n, chosen)
@@ -70,7 +70,7 @@ class Paxos:
         if acks < self._majority():
             return {"ok": False, "phase": 2}
 
-        # Chosen
+       
         self.log[index] = chosen
         self.commit_index = max(self.commit_index, index)
         return {"ok": True, "index": index, "value": chosen, "commitIndex": self.commit_index}

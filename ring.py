@@ -38,21 +38,20 @@ class Ring:
             return False
         start = initiator or min(alive_ids)
         if not self.nodes[start].alive:
-            # pick first alive as initiator
             start = min(alive_ids)
         candidate = start
         cur = start
         hops = 0
         while True:
             nxt = self._next_alive(cur)
-            if nxt is None:  # ring is effectively broken (no next alive)
+            if nxt is None:  
                 return False
             if nxt == start:
-                break  # full loop completed
+                break  
             candidate = max(candidate, nxt)
             cur = nxt
             hops += 1
-            if hops > len(self.nodes) * 3:  # safety
+            if hops > len(self.nodes) * 3: 
                 return False
         self.leader_id = candidate
         return True
