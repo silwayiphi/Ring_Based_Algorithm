@@ -3,7 +3,7 @@ from DS.DataCenter.Africa import AfricaDataCenter
 from DS.DataCenter.Africa import AfricaDataCenter
 from DS.DataCenter.Asia import AsiaDataCenter
 from DS.DataCenter.Europe import EuropeDataCenter
-
+from Datacenter import DataCenterNode
 from DS.DataCenter.North_America import NorthAmericaDataCenter
 from DS.DataCenter.South_America import SouthAmericaDataCenter
 from DS.DataCenter.Atantica import AtlanticDataCenter
@@ -19,7 +19,27 @@ africa_dc = AfricaDataCenter()
 north_america_dc = NorthAmericaDataCenter()
 south_america_dc = SouthAmericaDataCenter()
 atlantic_dc = AtlanticDataCenter()
-ring= Ring([asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id, atlantic_dc.datacenter_id])
+# Define ports for each datacenter
+datacenters_info = [
+    (africa_dc.name, 5001),
+    (europe_dc.name, 5002),
+    (asia_dc.name, 5003),
+    (north_america_dc.name, 5004),
+    (south_america_dc.name, 5005),
+    (atlantic_dc.name, 5006)
+]
+
+# Create nodes
+nodes = []
+for i, (name, port) in enumerate(datacenters_info):
+    successor_port = datacenters_info[(i + 1) % len(datacenters_info)][1]
+    node = DataCenterNode(name, port, successor_port)
+    node.start()
+    nodes.append(node)
+
+# Test sending a message around the ring
+Datacenters =[asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id, atlantic_dc.datacenter_id]
+ring= Ring(Datacenters)
 paxos = Paxos()
 
 @app.route("/")
@@ -39,6 +59,7 @@ def ring_start():
 @app.route("/api/ring/crash/<int:nid>", methods=["POST"])
 def ring_crash(nid):
     ok = ring.crash(nid)
+
     return jsonify({"ok": ok, **ring.state()})
 
 @app.route("/api/ring/recover/<int:nid>", methods=["POST"])
