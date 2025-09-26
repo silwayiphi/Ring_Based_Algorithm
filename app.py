@@ -1,10 +1,12 @@
 from flask import Flask, render_template, request, jsonify
-from Africa import AfricaDataCenter
-from Asia import AsiaDataCenter
-from Europe import EuropeDataCenter
-from NorthAmerica import NorthAmericaDataCenter
-from SouthAmerica import SouthAmericaDataCenter
+from DS.DataCenter.Africa import AfricaDataCenter
+from DS.DataCenter.Africa import AfricaDataCenter
+from DS.DataCenter.Asia import AsiaDataCenter
+from DS.DataCenter.Europe import EuropeDataCenter
 
+from DS.DataCenter.North_America import NorthAmericaDataCenter
+from DS.DataCenter.South_America import SouthAmericaDataCenter
+from DS.DataCenter.Atantica import AtlanticDataCenter
 
 from ring import Ring
 from paxos import Paxos
@@ -16,9 +18,9 @@ europe_dc = EuropeDataCenter()
 africa_dc = AfricaDataCenter()
 north_america_dc = NorthAmericaDataCenter()
 south_america_dc = SouthAmericaDataCenter()
-ring= Ring([asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id])
+atlantic_dc = AtlanticDataCenter()
+ring= Ring([asia_dc.datacenter_id, europe_dc.datacenter_id, africa_dc.datacenter_id, north_america_dc.datacenter_id, south_america_dc.datacenter_id, atlantic_dc.datacenter_id])
 paxos = Paxos()
-
 
 @app.route("/")
 def index():

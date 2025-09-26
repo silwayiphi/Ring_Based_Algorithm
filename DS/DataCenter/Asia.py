@@ -6,6 +6,7 @@ class AsiaDataCenter:
         self.is_operational = True
         self.utc_offset = "+08:00"  # UTC offset for the location
         self.servers = []
+        self.datacenter_id = 2
         self.is_operational = True
 
     def get_status(self):

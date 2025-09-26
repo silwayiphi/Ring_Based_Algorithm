@@ -4,6 +4,7 @@ class AfricaDataCenter:
         self.location = "Africa"
         self.capacity_tb = 5000  # Capacity in terabytes
         self.utc_offset = "+02:00"  # UTC offset for the location
+        self.datacenter_id = 1
         self.servers = []
         self.is_operational = True
 
