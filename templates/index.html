@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ring + Paxos Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Global Logistics — Ring (Chang–Roberts) + Paxos</h1>
+    <div id="meta">
+      <span id="commitIdx">commitIndex: 0</span>
+      <span id="consistency" class="badge">CONSISTENCY: ?</span>
+      <span id="ringLeader">Leader: —</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Ring Election</h2>
+      <div class="controls">
+        <button id="ringStart">Start Election</button>
+        <button data-crash="10">Crash 10</button>
+        <button data-crash="20">Crash 20</button>
+        <button data-crash="30">Crash 30</button>
+        <button data-crash="40">Crash 40</button>
+        <button data-recover="10">Recover 10</button>
+        <button data-recover="20">Recover 20</button>
+        <button data-recover="30">Recover 30</button>
+        <button data-recover="40">Recover 40</button>
+      </div>
+      <div id="ring" class="ring"></div>
+    </section>
+
+    <section>
+      <h2>Paxos (EU / US / APAC)</h2>
+      <div class="controls">
+        <input id="cmd" value="UPDATE P123 OUT_FOR_DELIVERY" />
+        <button id="propose">Propose</button>
+        <button data-pcrash="EU">Crash EU</button>
+        <button data-pcrash="US">Crash US</button>
+        <button data-pcrash="APAC">Crash APAC</button>
+        <button data-precover="EU">Recover EU</button>
+        <button data-precover="US">Recover US</button>
+        <button data-precover="APAC">Recover APAC</button>
+      </div>
+      <div id="acceptors" class="row">
+        <div class="card" id="acc-EU">EU</div>
+        <div class="card" id="acc-US">US</div>
+        <div class="card" id="acc-APAC">APAC</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
