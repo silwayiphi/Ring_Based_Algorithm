@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Data Center Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Data Center Dashboard</h1>
+    </header>
+
+    <!-- Datacenter Status Cards -->
+    <section id="datacenter-status">
+      <h2>Datacenter Status</h2>
+      <div id="datacenter-list" class="cards-grid"></div>
+    </section>
+
+    <!-- Real-time Package Simulation -->
+    <section id="package-simulation">
+      <h2>Simulated Package Deliveries (Real-time)</h2>
+      <ul id="events" class="timeline"></ul>
+    </section>
+
+    <!-- Package Lookup -->
+    <section id="package-lookup">
+      <h2>Lookup Package</h2>
+      <div class="controls">
+        <input id="lookup-id" placeholder="Enter Package ID" />
+        <button id="lookup">Lookup</button>
+      </div>
+      <div id="lookup-result" class="timeline"></div>
+    </section>
+  </div>
+
+  <!-- Socket.IO -->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
