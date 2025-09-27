@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ring Election — Chang–Roberts (step-by-step)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/styless.css" />
+</head>
+<body>
+<header>
+  <h1>Ring Election — Chang–Roberts</h1>
+  <div id="metrics">
+    <span id="ringLeader" class="badge">Leader: —</span>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>Controls</h2>
+    <div class="controls">
+      <input id="initiator" type="number" min="1" placeholder="Initiator ID (e.g., 1)" />
+      <input id="delay" type="number" min="0" value="400" title="step delay (ms)" />
+      <button id="animate">Animated Election</button>
+      <button id="fast">Fast Election</button>
+      <button id="reset">Reset</button>
+      <span class="spacer"></span>
+      <button data-crash="1">Crash 1</button>
+      <button data-crash="2">Crash 2</button>
+      <button data-crash="3">Crash 3</button>
+      <button data-crash="4">Crash 4</button>
+      <button data-crash="5">Crash 5</button>
+      <button data-crash="6">Crash 6</button>
+      <button data-recover="1">Recover 1</button>
+      <button data-recover="2">Recover 2</button>
+      <button data-recover="3">Recover 3</button>
+      <button data-recover="4">Recover 4</button>
+      <button data-recover="5">Recover 5</button>
+      <button data-recover="6">Recover 6</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ring (clockwise)</h2>
+    <div id="ring" class="ring"></div>
+    <h3>Trace</h3>
+    <div id="trace" class="trace"></div>
+  </section>
+
+  <section>
+    <h2>Legend</h2>
+    <ul>
+      <li><span class="chip part"></span> participant</li>
+      <li><span class="chip coord"></span> elected=k</li>
+      <li><span class="chip act"></span> current token location</li>
+      <li><span class="chip lead"></span> final leader</li>
+    </ul>
+  </section>
+</main>
+
+<script src="/static/apper.js"></script>
+</body>
+</html>
