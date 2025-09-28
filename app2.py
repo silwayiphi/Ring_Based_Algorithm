@@ -1,9 +1,11 @@
 import os
+import subprocess
 import time
 import threading
-from flask import Flask, render_template, request, jsonify,Response
+from flask import Flask, render_template, request, jsonify,Response,current_app
 from DS.DataCenter.Datacenter import DataCenter
 import json
+import requests
 from ring import Ring
 from paxos import Paxos
 
@@ -77,9 +79,32 @@ def ring_reset():
 def ring_crash(nid: int):
     ok = ring.crash(nid)
     ring.next_alive(nid)
+    current_app.logger.info("needed to crash %s", nid)
     index_cherry = Datacenters.index(nid)
     data = Datacenters_eq[index_cherry]
     data.is_operational = False
+    port_to_block = ports[data.name]
+    rule_name = f"BlockPort{port_to_block}"
+
+    ok = False
+    try:
+        subprocess.run([
+            "netsh", "advfirewall", "firewall", "delete", "rule",
+            f"name={rule_name}"
+        ], shell=True, capture_output=True, text=True)
+        subprocess.run([
+            "netsh", "advfirewall", "firewall", "add", "rule",
+            f"name={rule_name}",
+            "dir=in",
+            "action=block",
+            "protocol=TCP",
+            f"localport={port_to_block}"
+        ], check=True, shell=True, capture_output=True, text=True)
+        ok = True
+    except subprocess.CalledProcessError as e:
+        current_app.logger.error("Failed to block port %s: %s", port_to_block, e.stderr)
+
+    ring.next_alive(nid)
     return jsonify({"ok": ok, **ring.state()})
 
 @app.route("/api/ring/recover/<int:nid>", methods=["POST"])
@@ -131,5 +156,5 @@ def ring_election_sse():
     return resp
 
 if __name__ == "__main__":
-    app.run(debug=False, threaded=True, use_reloader=False)
+    app.run(debug=True, threaded=True, use_reloader=False)
 

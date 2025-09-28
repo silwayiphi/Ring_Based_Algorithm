@@ -167,19 +167,44 @@ class DataCenter:
         self.socketio = socketio
 
         def run_server():
-            socketio.run(app, host="0.0.0.0", port=port, debug=False)
+            socketio.run(app, host="127.0.0.1", port=port, debug=False)
 
-        t = threading.Thread(target=run_server, daemon=True)
+        t = threading.Thread(target=run_server)
         t.start()
         self.servers.append({"port": port, "thread": t})
         print(f"[+] {self.name} running on port {port} with neighbors: {self.neighbors}")
+    
+        @app.route("/api/replicate", methods=["POST"])
+        def replicate():
+            # Restrict access to neighbors only
+            remote_addr = request.remote_addr
+            allowed_hosts = [n.split("//")[-1].split(":")[0] for n in dc.neighbors]  # extract host
+            if remote_addr not in allowed_hosts and remote_addr != "127.0.0.1":
+                # reject requests from non-neighbors
+                os.abort(403, description="Not allowed: only neighbors can replicate")
 
-    def _replicate_event_to_neighbors(self, package_id, event_record):
-        payload = {"package_id": package_id, "event": event_record}
-        headers = {"Content-Type": "application/json"}
-        for n in self.neighbors:
-            try:
-                url = f"{n}/api/replicate"
-                requests.post(url, json=payload, headers=headers, timeout=2)
-            except Exception as e:
-                print(f"[!] replication to {n} failed: {e}")
+            data = request.get_json() or {}
+            package_id = data.get("package_id")
+            event = data.get("event")
+            if not package_id or not event:
+                return jsonify({"ok": False, "error": "missing package_id or event"}), 400
+
+            existing = dc.packages.get(package_id, {}).get("history", [])
+            if any(e.get("event_id") == event.get("event_id") for e in existing):
+                return jsonify({"ok": True, "skipped": True})
+
+            dc.packages.setdefault(package_id, {
+                "package_id": package_id,
+                "status": "unknown",
+                "current_location": None,
+                "zone": PACKAGE_ZONE.get(package_id, "Unknown"),
+                "history": []
+            })
+            dc.packages[package_id]["history"].append(event)
+            if "location" in event:
+                dc.packages[package_id]["current_location"] = event["location"]
+            if "status" in event:
+                dc.packages[package_id]["status"] = event["status"]
+
+            dc.socketio.emit("package_event", {"package_id": package_id, "event": event}, namespace="/")
+            return jsonify({"ok": True})
