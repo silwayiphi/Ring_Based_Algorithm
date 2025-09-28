@@ -1,13 +1,11 @@
 import os
-import subprocess
 import time
 import threading
-from flask import Flask, render_template, request, jsonify,Response,current_app
+from flask import Flask, render_template, request, jsonify, Response
 from DS.DataCenter.Datacenter import DataCenter
 import json
-import requests
 from ring import Ring
-from paxos import Paxos
+from paxos import PaxosCluster
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +13,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+
 # --- Initialize Data Centers ---
 asia_dc = DataCenter("Asia Data Center", "Asia", 5000, "+03:00", 1)
 australia_dc = DataCenter("Australia Data Center", "Australia", 5000, "+10:00", 7)
@@ -52,10 +51,14 @@ Datacenters = [
     africa_dc.datacenter_id,
     north_america_dc.datacenter_id,
     south_america_dc.datacenter_id,
-    atlantic_dc.datacenter_id, australia_dc.datacenter_id
+    atlantic_dc.datacenter_id,
+    australia_dc.datacenter_id
 ]
+
 ring = Ring(Datacenters)
-paxos = Paxos()
+
+# ✅ FIX: use PaxosCluster (there is no class named 'Paxos')
+paxos = PaxosCluster(["EU", "US", "APAC"])
 
 def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, separators=(',',':'))}\n\n"
@@ -63,7 +66,7 @@ def _sse(data: dict) -> str:
 # ------------ UI ------------
 @app.route("/")
 def index():
-    return render_template("indexer2.html")
+    return render_template("indexer2.html")  # make sure templates/indexer2.html exists
 
 # ------------ Ring APIs ------------
 @app.route("/api/ring/state")
@@ -78,33 +81,10 @@ def ring_reset():
 @app.route("/api/ring/crash/<int:nid>", methods=["POST"])
 def ring_crash(nid: int):
     ok = ring.crash(nid)
-    ring.next_alive(nid)
-    current_app.logger.info("needed to crash %s", nid)
+    ring.next_alive(nid)  # optional: not strictly needed
     index_cherry = Datacenters.index(nid)
     data = Datacenters_eq[index_cherry]
     data.is_operational = False
-    port_to_block = ports[data.name]
-    rule_name = f"BlockPort{port_to_block}"
-
-    ok = False
-    try:
-        subprocess.run([
-            "netsh", "advfirewall", "firewall", "delete", "rule",
-            f"name={rule_name}"
-        ], shell=True, capture_output=True, text=True)
-        subprocess.run([
-            "netsh", "advfirewall", "firewall", "add", "rule",
-            f"name={rule_name}",
-            "dir=in",
-            "action=block",
-            "protocol=TCP",
-            f"localport={port_to_block}"
-        ], check=True, shell=True, capture_output=True, text=True)
-        ok = True
-    except subprocess.CalledProcessError as e:
-        current_app.logger.error("Failed to block port %s: %s", port_to_block, e.stderr)
-
-    ring.next_alive(nid)
     return jsonify({"ok": ok, **ring.state()})
 
 @app.route("/api/ring/recover/<int:nid>", methods=["POST"])
@@ -155,6 +135,24 @@ def ring_election_sse():
     resp.headers["Connection"] = "keep-alive"
     return resp
 
-if __name__ == "__main__":
-    app.run(debug=True, threaded=True, use_reloader=False)
+# ------------ Paxos APIs ------------
+@app.route("/api/paxos/state")
+def paxos_state():
+    return jsonify(paxos.state())
 
+@app.route("/api/paxos/propose", methods=["POST"])
+def paxos_propose():
+    cmd = (request.get_json(silent=True) or {}).get("command") or "NOOP"
+    res = paxos.propose(cmd)
+    return jsonify(res | paxos.state())
+
+@app.route("/api/paxos/crash/<name>", methods=["POST"])
+def paxos_crash(name: str):
+    return jsonify({"ok": paxos.crash(name)} | paxos.state())
+
+@app.route("/api/paxos/recover/<name>", methods=["POST"])
+def paxos_recover(name: str):
+    return jsonify({"ok": paxos.recover(name)} | paxos.state())
+
+if __name__ == "__main__":
+    app.run(debug=False, threaded=True, use_reloader=False)

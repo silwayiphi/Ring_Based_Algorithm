@@ -2,21 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Ring Election — Chang–Roberts (step-by-step)</title>
+  <title>Ring + Paxos Demo (Logistics Platform)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- NOTE: file name as you used it -->
   <link rel="stylesheet" href="/static/styless.css" />
 </head>
 <body>
 <header>
-  <h1>Ring Election — Chang–Roberts</h1>
-  <div id="metrics">
+  <h1>Ring (Regional Leader) + Paxos (Cross-DC Consensus)</h1>
+  <div class="metrics">
     <span id="ringLeader" class="badge">Leader: —</span>
+    <span id="commitIdx" class="badge">commitIndex: 0</span>
   </div>
 </header>
 
 <main>
+  <!-- RING -->
   <section>
-    <h2>Controls</h2>
+    <h2>Regional Leader Election — Chang–Roberts Ring</h2>
+    <p class="muted">Elects a leader per region/shard for issuing parcel IDs and aggregating telemetry.</p>
+
     <div class="controls">
       <input id="initiator" type="number" min="1" placeholder="Initiator ID (e.g., 1)" />
       <input id="delay" type="number" min="0" value="400" title="step delay (ms)" />
@@ -24,6 +29,7 @@
       <button id="fast">Fast Election</button>
       <button id="reset">Reset</button>
       <span class="spacer"></span>
+      <!-- 7 nodes -->
       <button data-crash="1">Crash 1</button>
       <button data-crash="2">Crash 2</button>
       <button data-crash="3">Crash 3</button>
@@ -39,26 +45,48 @@
       <button data-recover="6">Recover 6</button>
       <button data-recover="7">Recover 7</button>
     </div>
+
+    <div id="ring" class="ring"></div>
+
+    <h3>Ring Trace</h3>
+    <div id="trace" class="trace"></div>
   </section>
 
+  <!-- PAXOS -->
   <section>
-    <h2>Ring (clockwise)</h2>
-    <div id="ring" class="ring"></div>
-    <h3>Trace</h3>
-    <div id="trace" class="trace"></div>
+    <h2>Global Consensus — Paxos (EU / US / APAC)</h2>
+    <p class="muted">Agrees on official parcel updates across data centers via majority quorum.</p>
+
+    <div class="controls">
+      <input id="cmd" type="text" placeholder="e.g., UPDATE P123 OUT_FOR_DELIVERY" />
+      <button id="propose">Propose</button>
+      <span class="spacer"></span>
+      <em class="muted">Crash/Recover DCs below</em>
+    </div>
+
+    <div id="acceptors" class="grid"></div>
+
+    <h3>Chosen Log</h3>
+    <ol id="paxosLog" class="log"></ol>
+
+    <h3>Paxos Trace</h3>
+    <div id="paxosTrace" class="trace"></div>
   </section>
 
   <section>
     <h2>Legend</h2>
-    <ul>
-      <li><span class="chip part"></span> participant</li>
-      <li><span class="chip coord"></span> elected=k</li>
-      <li><span class="chip act"></span> current token location</li>
-      <li><span class="chip lead"></span> final leader</li>
+    <ul class="legend">
+      <li><span class="chip part"></span> participant (Ring)</li>
+      <li><span class="chip coord"></span> elected=k (Ring)</li>
+      <li><span class="chip act"></span> current token (Ring)</li>
+      <li><span class="chip lead"></span> leader (Ring)</li>
+      <li><span class="chip ok"></span> alive (Paxos)</li>
+      <li><span class="chip down"></span> down (Paxos)</li>
     </ul>
   </section>
 </main>
 
+<!-- NOTE: file name as you used it -->
 <script src="/static/apper.js"></script>
 </body>
 </html>

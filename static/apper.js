@@ -4,20 +4,27 @@ async function jpost(u,b={}){ const r = await fetch(u,{method:"POST",headers:{"C
 
 // ---------- elements ----------
 const ringDiv = document.getElementById("ring");
-const traceDiv = document.getElementById("trace");
 const ringLeaderEl = document.getElementById("ringLeader");
+const traceDiv = document.getElementById("trace");
+
+const commitIdxEl = document.getElementById("commitIdx");
+const paxosLogEl = document.getElementById("paxosLog");
+const acceptorsEl = document.getElementById("acceptors");
+const paxosTraceEl = document.getElementById("paxosTrace");
+
 let ringES = null;
 
 // ---------- ring visualization ----------
 function layoutRing(nodes, leaderId){
   if (!ringDiv) return;
   ringDiv.innerHTML = "";
-  const cx = 260, cy = 140, R = 105;
-  nodes.forEach((n, i)=>{
-    const angle = (2*Math.PI*i)/nodes.length - Math.PI/2;
-    const x = cx + R*Math.cos(angle), y = cy + R*Math.sin(angle);
+  const cx = 270, cy = 150, R = 110;
+  nodes.forEach((n,i)=>{
+    const a = (2*Math.PI*i)/nodes.length - Math.PI/2;
+    const x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
     const el = document.createElement("div");
-    el.className = `node ${n.alive?"":"dead"} ${n.participant?"participant":""} ${(n.elected!=null)?"elected":""} ${n.id===leaderId?"leader":""}`;
+    // include .dead if node is not alive (crashed)
+    el.className = `node ${n.alive ? "" : "dead"} ${n.participant?"participant":""} ${(n.elected!=null)?"elected":""} ${n.id===leaderId?"leader":""}`;
     el.style.left = (x-32)+"px"; el.style.top = (y-32)+"px";
     el.textContent = n.id;
     ringDiv.append(el);
@@ -28,68 +35,119 @@ function highlightNode(id, on=true){
     if (Number(n.textContent.trim()) === id) n.classList.toggle("active", on);
   });
 }
-function logTrace(text){
+function ringLog(line){
   if (!traceDiv) return;
   const d = document.createElement("div");
-  d.textContent = text;
+  d.textContent = line;
   traceDiv.prepend(d);
-  while (traceDiv.children.length > 160) traceDiv.removeChild(traceDiv.lastChild);
+  while (traceDiv.children.length > 180) traceDiv.removeChild(traceDiv.lastChild);
 }
 
-// ---------- refresh ----------
-async function refresh(){
-  const st = await jget("/api/ring/state");
-  layoutRing(st.nodes, st.leaderId);
-  ringLeaderEl.textContent = `Leader: ${st.leaderId ?? "—"}`;
+// ---------- paxos rendering ----------
+function paxosLog(line){
+  if (!paxosTraceEl) return;
+  const d = document.createElement("div");
+  d.textContent = line;
+  paxosTraceEl.prepend(d);
+  while (paxosTraceEl.children.length > 180) paxosTraceEl.removeChild(paxosTraceEl.lastChild);
 }
+function renderPaxos(state){
+  // commit index
+  if (commitIdxEl) commitIdxEl.textContent = `commitIndex: ${state.commitIndex}`;
 
-// ---------- animated: JSON fallback ----------
-async function animateFromTraceJSON(init, delay){
-  const url = init ? `/api/ring/trace?initiator=${encodeURIComponent(init)}` : `/api/ring/trace`;
-  const tr = await jget(url);
-  if (!tr.ok){ logTrace(`ERROR: ${tr.reason||"trace failed"}`); return; }
+  // acceptors list
+  if (acceptorsEl){
+    acceptorsEl.innerHTML = "";
+    (state.acceptors || []).forEach(a=>{
+      const card = document.createElement("div");
+      card.className = "card" + (a.alive ? "" : " down");
+      card.innerHTML = `
+        <h4>${a.name} ${a.alive ? "" : "(down)"}</h4>
+        <div class="kv">promised=${a.promised}</div>
+        <div class="kv">accepted=${a.accepted===null?"—":JSON.stringify(a.accepted)}</div>
+        <div class="btns">
+          <button data-pcrash="${a.name}">Crash</button>
+          <button data-precover="${a.name}">Recover</button>
+        </div>
+      `;
+      acceptorsEl.append(card);
+    });
+  }
 
-  traceDiv.innerHTML = "";
-  ringDiv.querySelectorAll(".node").forEach(n=> n.classList.remove("active"));
-
-  for (const s of tr.steps){
-    if (s.type === "start"){
-      highlightNode(s.who, true);
-      logTrace(`START: P${s.who} marks participant and sends ELECTION(j=${s.who})`);
-    }
-    if (s.type === "hop"){
-      highlightNode(s.frm, false); highlightNode(s.to, true);
-      if (s.compare.startsWith("j<me & non-participant")){
-        logTrace(`RECV at P${s.to}: j=${s.j_in} < own ⇒ replace with ${s.action.split('-with-')[1]} & forward`);
-      } else if (s.compare === "j>me"){
-        logTrace(`RECV at P${s.to}: j=${s.j_in} > own ⇒ forward unchanged`);
-      } else {
-        logTrace(`RECV at P${s.to}: j=${s.j_in} < own (already participant) ⇒ forward unchanged`);
-      }
-      await new Promise(r=> setTimeout(r, Math.max(0, delay)));
-    }
-    if (s.type === "winner"){
-      highlightNode(s.who, true);
-      ringLeaderEl.textContent = `Leader: ${s.who}`;
-      logTrace(`WINNER: P${s.who} (saw its own id)`);
-    }
-    if (s.type === "coord"){
-      logTrace(`COORDINATOR(k=${s.leader}) flows: P${s.frm} → P${s.to}; P${s.to} sets elected=${s.leader} & non-participant`);
-      await new Promise(r=> setTimeout(r, Math.max(0, delay)));
-    }
-    if (s.type === "end"){
-      logTrace(`ELECTION COMPLETE (leader=${s.leader})`);
+  // chosen log
+  if (paxosLogEl){
+    paxosLogEl.innerHTML = "";
+    const entries = Object.entries(state.log || {}).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
+    for (const [idx, val] of entries){
+      const li = document.createElement("li");
+      li.textContent = `#${idx}: ${val}`;
+      paxosLogEl.append(li);
     }
   }
-  refresh();
 }
 
-// ---------- wire ----------
+// ---------- refresh both panels ----------
+async function refresh(){
+  try{
+    const rs = await jget("/api/ring/state");
+    layoutRing(rs.nodes, rs.leaderId);
+    if (ringLeaderEl) ringLeaderEl.textContent = `Leader: ${rs.leaderId ?? "—"}`;
+  }catch{}
+  try{
+    const ps = await jget("/api/paxos/state");
+    renderPaxos(ps);
+  }catch{}
+}
+
+// ---------- animated ring: JSON fallback ----------
+async function animateFromTraceJSON(init, delay){
+  try{
+    const url = init ? `/api/ring/trace?initiator=${encodeURIComponent(init)}` : `/api/ring/trace`;
+    const tr = await jget(url);
+    if (!tr.ok){ ringLog(`ERROR: ${tr.reason||"trace failed"}`); return; }
+
+    traceDiv.innerHTML = "";
+    ringDiv.querySelectorAll(".node").forEach(n=> n.classList.remove("active"));
+
+    for (const s of tr.steps){
+      if (s.type === "start"){
+        highlightNode(s.who, true);
+        ringLog(`START: P${s.who} marks participant and sends ELECTION(j=${s.who})`);
+      }
+      if (s.type === "hop"){
+        highlightNode(s.frm, false); highlightNode(s.to, true);
+        if (s.compare.startsWith("j<me & non-participant")){
+          ringLog(`RECV at P${s.to}: j=${s.j_in} < own ⇒ replace with ${s.action.split('-with-')[1]} & forward`);
+        } else if (s.compare === "j>me"){
+          ringLog(`RECV at P${s.to}: j=${s.j_in} > own ⇒ forward unchanged`);
+        } else {
+          ringLog(`RECV at P${s.to}: j=${s.j_in} < own (already participant) ⇒ forward unchanged`);
+        }
+        await new Promise(r=> setTimeout(r, Math.max(0, delay)));
+      }
+      if (s.type === "winner"){
+        highlightNode(s.who, true);
+        if (ringLeaderEl) ringLeaderEl.textContent = `Leader: ${s.who}`;
+        ringLog(`WINNER: P${s.who} (saw its own id)`);
+      }
+      if (s.type === "coord"){
+        ringLog(`COORDINATOR(k=${s.leader}) flows: P${s.frm} → P${s.to}; P${s.to} sets elected=${s.leader} & non-participant`);
+        await new Promise(r=> setTimeout(r, Math.max(0, delay)));
+      }
+      if (s.type === "end"){
+        ringLog(`ELECTION COMPLETE (leader=${s.leader})`);
+      }
+    }
+    refresh();
+  }catch(e){ ringLog(`ERROR: ${e.message||e}`); }
+}
+
+// ---------- wire events ----------
 function wire(){
+  // RING buttons
   document.getElementById("animate").onclick = ()=>{
     const init = document.getElementById("initiator").value.trim();
     const delay = Number(document.getElementById("delay").value || "400");
-    // prefer SSE; fall back to JSON if SSE errors
     const url = init
       ? `/stream/ring/election?initiator=${encodeURIComponent(init)}&delay=${delay}`
       : `/stream/ring/election?delay=${delay}`;
@@ -97,34 +155,33 @@ function wire(){
     traceDiv.innerHTML = "";
     ringDiv.querySelectorAll(".node").forEach(n=> n.classList.remove("active"));
 
-    try { if (ringES) ringES.close(); } catch {}
+    try{ if (ringES) ringES.close(); }catch{}
     let fellBack = false;
     ringES = new EventSource(url);
-
-    ringES.onmessage = (ev)=>{
+    ringES.onmessage = ev=>{
       try{
         const m = JSON.parse(ev.data);
         if (m.type === "start"){
           highlightNode(m.who, true);
-          logTrace(`START: P${m.who} marks participant and sends ELECTION(j=${m.who})`);
+          ringLog(`START: P${m.who} marks participant and sends ELECTION(j=${m.who})`);
         } else if (m.type === "hop"){
           highlightNode(m.frm, false); highlightNode(m.to, true);
           if (m.compare.startsWith("j<me & non-participant")){
-            logTrace(`RECV at P${m.to}: j=${m.j_in} < own ⇒ replace with ${m.action.split('-with-')[1]} & forward`);
+            ringLog(`RECV at P${m.to}: j=${m.j_in} < own ⇒ replace with ${m.action.split('-with-')[1]} & forward`);
           } else if (m.compare === "j>me"){
-            logTrace(`RECV at P${m.to}: j=${m.j_in} > own ⇒ forward unchanged`);
+            ringLog(`RECV at P${m.to}: j=${m.j_in} > own ⇒ forward unchanged`);
           } else {
-            logTrace(`RECV at P${m.to}: j=${m.j_in} < own (already participant) ⇒ forward unchanged`);
+            ringLog(`RECV at P${m.to}: j=${m.j_in} < own (already participant) ⇒ forward unchanged`);
           }
         } else if (m.type === "winner"){
           highlightNode(m.who, true);
-          ringLeaderEl.textContent = `Leader: ${m.who}`;
-          logTrace(`WINNER: P${m.who} (saw its own id)`);
+          if (ringLeaderEl) ringLeaderEl.textContent = `Leader: ${m.who}`;
+          ringLog(`WINNER: P${m.who} (saw its own id)`);
         } else if (m.type === "coord"){
-          logTrace(`COORDINATOR(k=${m.leader}) flows: P${m.frm} → P${m.to}; P${m.to} sets elected=${m.leader} & non-participant`);
+          ringLog(`COORDINATOR(k=${m.leader}) flows: P${m.frm} → P${m.to}; P${m.to} sets elected=${m.leader} & non-participant`);
         } else if (m.type === "end"){
-          logTrace("ELECTION COMPLETE");
-          try { ringES.close(); } catch {}
+          ringLog("ELECTION COMPLETE");
+          try{ ringES.close(); }catch{}
           refresh();
         } else if (m.type === "error"){
           throw new Error(m.reason||"SSE error");
@@ -132,40 +189,70 @@ function wire(){
       }catch(e){
         if (!fellBack){
           fellBack = true;
-          try { ringES.close(); } catch {}
-          animateFromTraceJSON(init, delay);
+          try{ ringES.close(); }catch{}
+          const initVal = document.getElementById("initiator").value.trim();
+          const delayVal = Number(document.getElementById("delay").value || "400");
+          animateFromTraceJSON(initVal, delayVal);
         }
       }
     };
     ringES.onerror = ()=>{
       if (!fellBack){
-        try { ringES.close(); } catch {}
-        animateFromTraceJSON(init, delay);
+        try{ ringES.close(); }catch{}
+        const initVal = document.getElementById("initiator").value.trim();
+        const delayVal = Number(document.getElementById("delay").value || "400");
+        animateFromTraceJSON(initVal, delayVal);
       }
     };
   };
 
   document.getElementById("fast").onclick = async ()=>{
     const init = document.getElementById("initiator").value.trim();
-    await jpost("/api/ring/fast", init ? {initiator: Number(init)} : {});
-    logTrace("FAST election executed");
+    await jpost("/api/ring/fast", init ? {initiator:Number(init)} : {});
+    ringLog("FAST election executed");
     refresh();
   };
 
   document.getElementById("reset").onclick = async ()=>{
     await jpost("/api/ring/reset");
     traceDiv.innerHTML = "";
-    logTrace("Reset: participant=false, elected cleared, leader cleared");
+    ringLog("Reset: participant=false, elected cleared, leader cleared");
     refresh();
   };
 
   document.querySelectorAll("[data-crash]").forEach(b=>{
-    b.onclick = ()=> jpost(`/api/ring/crash/${b.dataset.crash}`)
-      .then(()=>{ logTrace(`Crashed ${b.dataset.crash}`); refresh(); });
+    b.onclick = ()=> jpost(`/api/ring/crash/${b.dataset.crash}`).then(()=>{ ringLog(`Crashed ${b.dataset.crash}`); refresh(); });
   });
   document.querySelectorAll("[data-recover]").forEach(b=>{
-    b.onclick = ()=> jpost(`/api/ring/recover/${b.dataset.recover}`)
-      .then(()=>{ logTrace(`Recovered ${b.dataset.recover}`); refresh(); });
+    b.onclick = ()=> jpost(`/api/ring/recover/${b.dataset.recover}`).then(()=>{ ringLog(`Recovered ${b.dataset.recover}`); refresh(); });
+  });
+
+  // PAXOS propose
+  document.getElementById("propose").onclick = async ()=>{
+    const val = document.getElementById("cmd").value.trim() || "NOOP";
+    const res = await jpost("/api/paxos/propose", {command: val});
+    if (res.ok){
+      paxosLog(`PROPOSED: "${val}" → chosen at slot #${res.slot}`);
+    }else{
+      paxosLog(`PROPOSE FAILED: ${res.reason || "unknown"}`);
+    }
+    renderPaxos(res);
+  };
+
+  // PAXOS crash/recover via event delegation
+  acceptorsEl.addEventListener("click", async (e)=>{
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.dataset.pcrash){
+      const res = await jpost(`/api/paxos/crash/${t.dataset.pcrash}`);
+      paxosLog(`CRASH: ${t.dataset.pcrash}`);
+      renderPaxos(res);
+    }
+    if (t.dataset.precover){
+      const res = await jpost(`/api/paxos/recover/${t.dataset.precover}`);
+      paxosLog(`RECOVER: ${t.dataset.precover}`);
+      renderPaxos(res);
+    }
   });
 }
 

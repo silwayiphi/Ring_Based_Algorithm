@@ -5,18 +5,23 @@
 *{ box-sizing:border-box; }
 body{ margin:0; font-family:system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--fg); }
 header{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #1f2937; }
-main{ max-width:980px; margin:0 auto; padding:16px; }
-section{ background:var(--panel); border:1px solid #1f2937; border-radius:12px; padding:14px; margin-bottom:16px; }
-h1,h2,h3{ margin:0 0 10px 0; }
+header h1{ margin:0; font-size:20px; }
+.metrics{ display:flex; gap:8px; align-items:center; }
+.badge{ padding:4px 8px; border-radius:8px; border:1px solid var(--line); }
 
-.controls{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+main{ max-width:1080px; margin:0 auto; padding:16px; }
+section{ background:var(--panel); border:1px solid #1f2937; border-radius:12px; padding:14px; margin-bottom:16px; }
+h2,h3{ margin:0 0 10px 0; }
+.muted{ color:var(--muted); font-size:14px; }
+
+.controls{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
 .spacer{ flex:1; }
 button{ background:#1f2937; color:var(--fg); border:1px solid var(--line); padding:6px 10px; border-radius:8px; cursor:pointer; }
 button:hover{ background:#0b1220; }
-input{ background:#0b1220; color:var(--fg); border:1px solid var(--line); padding:6px 10px; border-radius:8px; min-width:160px; }
-.badge{ padding:4px 8px; border-radius:8px; border:1px solid var(--line); }
+input{ background:#0b1220; color:var(--fg); border:1px solid var(--line); padding:6px 10px; border-radius:8px; min-width:200px; }
 
-.ring{ position:relative; width:520px; height:280px; margin:8px 0; }
+/* Ring diagram */
+.ring{ position:relative; width:540px; height:300px; margin:8px 0; }
 .node{
   position:absolute; width:64px; height:64px; border-radius:999px;
   border:2px solid var(--line); background:#0b1220; display:flex;
@@ -27,6 +32,16 @@ input{ background:#0b1220; color:var(--fg); border:1px solid var(--line); paddin
 .node.active{ box-shadow: 0 0 0 4px rgba(59,130,246,.55); }
 .node.leader{ outline:4px solid var(--warn); }
 
+/* NEW: ring node when crashed */
+.node.dead{
+  background: rgba(239,68,68,.10);       /* soft red fill */
+  border-color: var(--down);              /* red border */
+  box-shadow: 0 0 0 3px rgba(239,68,68,.35) inset;
+  color: #fecaca;                         /* light red text */
+}
+.node.dead.leader{ outline-color: var(--down); }
+
+/* Logs / traces */
 .trace{
   max-height:260px; overflow:auto; background:#0b1220; border:1px solid var(--line);
   border-radius:8px; padding:8px; font-family:ui-monospace,Consolas,monospace; font-size:12px;
@@ -34,9 +49,37 @@ input{ background:#0b1220; color:var(--fg); border:1px solid var(--line); paddin
 .trace div{ padding:2px 0; border-bottom:1px dashed #223; }
 .trace div:last-child{ border-bottom:none; }
 
-ul{ list-style:none; padding:0; margin:0; display:flex; gap:16px; }
+/* Paxos acceptors */
+.grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+.card{
+  border:1px solid #243142; background:#0b1220; border-radius:10px; padding:10px;
+}
+.card h4{ margin:0 0 6px 0; }
+.kv{ font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--muted); }
+.card .row{ display:flex; justify-content:space-between; gap:8px; margin:4px 0; }
+.card .btns{ display:flex; gap:6px; margin-top:8px; }
+
+/* UPDATED: acceptor card when down (red highlight) */
+.card.down{
+  opacity: 1;
+  filter: none;
+  border-color: var(--down);
+  background: rgba(239,68,68,.08);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.20) inset;
+}
+.card.down h4{ color: #fecaca; }
+.card.down .kv{ color: #fca5a5; }
+
+/* Paxos log */
+.log{ margin:0; padding-left:18px; }
+.log li{ padding:2px 0; font-family:ui-monospace,Consolas,monospace; }
+
+/* Legend chips */
+.legend{ list-style:none; padding:0; margin:0; display:flex; gap:16px; flex-wrap:wrap; }
 .chip{ display:inline-block; width:18px; height:18px; border-radius:6px; vertical-align:middle; margin-right:6px; border:2px solid #334155; }
 .chip.part{ background: rgba(16,185,129,.3); }
 .chip.coord{ background: rgba(245,158,11,.3); }
 .chip.act{ background: rgba(59,130,246,.3); }
 .chip.lead{ background: rgba(245,158,11,.6); }
+.chip.ok{ background: rgba(16,185,129,.4); }
+.chip.down{ background: rgba(239,68,68,.45); }
