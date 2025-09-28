@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+from tkinter.font import names
 from flask import Flask, render_template, request, jsonify, Response
 from DS.DataCenter.Datacenter import DataCenter
 import json
@@ -58,7 +59,8 @@ Datacenters = [
 ring = Ring(Datacenters)
 
 # ✅ FIX: use PaxosCluster (there is no class named 'Paxos')
-paxos = PaxosCluster(["EU", "US", "APAC"])
+paxos_dc_names = [dc.name for dc in Datacenters_eq]
+paxos = PaxosCluster(paxos_dc_names)
 
 def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, separators=(',',':'))}\n\n"
