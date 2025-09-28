@@ -24,6 +24,19 @@ north_america_dc = DataCenter("North America Data Center", "North America", 5000
 south_america_dc = DataCenter("South America Data Center", "South America", 5000, "-03:00", 5)
 atlantic_dc = DataCenter("Atlantic Data Center", "Atlantic", 5000, "+00:00", 6)
 
+# --- Ring ⇄ Paxos name/ID mapping (keep these in this exact order) ---
+ID_TO_NAME = {
+    1: "Asia Data Center",
+    2: "Europe Data Center",
+    3: "Africa Data Center",
+    4: "North America Data Center",
+    5: "South America Data Center",
+    6: "Atlantic Data Center",
+    7: "Australia Data Center",
+}
+NAME_BY_ID = ID_TO_NAME  # alias for clarity
+
+
 ports = {
     "Asia Data Center": 5001,
     "Australia Data Center": 5002,
@@ -80,24 +93,23 @@ def ring_reset():
     ring.reset_flags()
     return jsonify({"ok": True, **ring.state()})
 
-@app.route("/api/ring/crash/<int:nid>", methods=["POST"])
-def ring_crash(nid: int):
+@app.post("/api/ring/crash/<int:nid>")
+def ring_crash(nid):
     ok = ring.crash(nid)
-    ring.next_alive(nid)  # optional: not strictly needed
-    index_cherry = Datacenters.index(nid)
-    data = Datacenters_eq[index_cherry]
-    data.is_operational = False
-    return jsonify({"ok": ok, **ring.state()})
+    name = {1:"Asia Data Center",2:"Europe Data Center",3:"Africa Data Center",
+            4:"North America Data Center",5:"South America Data Center",
+            6:"Atlantic Data Center",7:"Australia Data Center"}[nid]
+    paxos.crash(name)
+    return jsonify({"ok": ok, **ring.state(), "paxos": paxos.state()})
 
 @app.route("/api/ring/recover/<int:nid>", methods=["POST"])
 def ring_recover(nid: int):
     ok = ring.recover(nid)
-    index_cherry = Datacenters.index(nid)
-    data_center = Datacenters_eq[index_cherry]
-    data_center.is_operational = True
-    if data_center not in Datacenters_eq:
-        Datacenters_eq.insert(index_cherry, data_center)
-    return jsonify({"ok": ok, **ring.state()})
+    # reflect the same DC recovery in Paxos
+    name = NAME_BY_ID.get(nid)
+    if name:
+        paxos.recover(name)
+    return jsonify({"ok": ok, **ring.state(), "paxos": paxos.state()})
 
 @app.route("/api/ring/fast", methods=["POST"])
 def ring_fast():
@@ -144,9 +156,33 @@ def paxos_state():
 
 @app.route("/api/paxos/propose", methods=["POST"])
 def paxos_propose():
-    cmd = (request.get_json(silent=True) or {}).get("command") or "NOOP"
+    cmd = (request.get_json(silent=True) or {}).get("command")
+    cmd = (cmd or "").strip() or "NOOP"
+
+    # 1) Require a live ring leader; auto-elect if needed
+    lid = ring.leader_id
+    if lid is None or not ring.nodes[lid].alive:
+        tr = ring.start_fast()         # quick non-animated election
+        if not tr.get("ok"):
+            return jsonify({"ok": False, "reason": "ring-election-failed"}), 503
+        lid = ring.leader_id
+
+    proposer_name = {
+        1:"Asia Data Center", 2:"Europe Data Center", 3:"Africa Data Center",
+        4:"North America Data Center", 5:"South America Data Center",
+        6:"Atlantic Data Center", 7:"Australia Data Center",
+    }.get(lid, f"node-{lid}")
+
+    # 2) Run Paxos; result depends on majority of alive acceptors
     res = paxos.propose(cmd)
-    return jsonify(res | paxos.state())
+
+    return jsonify({
+        "proposerId": lid,
+        "proposerName": proposer_name,
+        **res,
+        **paxos.state()
+    })
+
 
 @app.route("/api/paxos/crash/<name>", methods=["POST"])
 def paxos_crash(name: str):

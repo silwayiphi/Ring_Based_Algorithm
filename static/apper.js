@@ -228,16 +228,26 @@ function wire(){
   });
 
   // PAXOS propose
-  document.getElementById("propose").onclick = async ()=>{
-    const val = document.getElementById("cmd").value.trim() || "NOOP";
-    const res = await jpost("/api/paxos/propose", {command: val});
-    if (res.ok){
-      paxosLog(`PROPOSED: "${val}" → chosen at slot #${res.slot}`);
-    }else{
-      paxosLog(`PROPOSE FAILED: ${res.reason || "unknown"}`);
+  document.getElementById("propose").onclick = async () => {
+    const cmd = (document.getElementById("cmd").value || "").trim() || "NOOP";
+
+    // backend will also auto-elect, but this gives a smoother UX
+    const st = await jget("/api/ring/state");
+    const lid = st.leaderId;
+    const aliveLeader = lid && st.nodes.find(n => n.id === lid && n.alive);
+    if (!aliveLeader) {
+      await jpost("/api/ring/fast", {}); // quick election
     }
-    renderPaxos(res);
+
+    const res = await jpost("/api/paxos/propose", { command: cmd });
+    if (!res.ok) {
+      logPaxos(`PROPOSE failed: ${res.reason || "unknown"}`);
+      return;
+    }
+    logPaxos(`PROPOSED by ${res.proposerName} → chosen="${res.chosen}" at slot #${res.slot}`);
+    refreshPaxos(); // your existing refresh
   };
+
 
   // PAXOS crash/recover via event delegation
   acceptorsEl.addEventListener("click", async (e)=>{
@@ -256,7 +266,6 @@ function wire(){
   });
 }
 
-// ---------- init ----------
 wire();
 refresh();
 setInterval(refresh, 2000);
